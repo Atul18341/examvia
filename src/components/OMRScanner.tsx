@@ -25,7 +25,6 @@ import {
   normalizeAnswerMap,
   extractAnswersFromQuestions,
   resolveSetAnswerKeyFromRecord,
-  parseAnswerKeyInput,
 } from './omr-scanner/answerKeyUtils';
 import {
   binarizeImage,
@@ -87,7 +86,6 @@ export default function OMRScanner({
   const [detectedCorners, setDetectedCorners] = useState<DetectedCorners | null>(null);
   const [activeDragCorner, setActiveDragCorner] = useState<CornerKey | null>(null);
 
-  // Exam blueprint & marking scheme loaded strictly from db.exams
   const [examTitle, setExamTitle] = useState<string>('');
   const [totalQuestions, setTotalQuestions] = useState<number>(defaultTotalQuestions);
   const [marksPerCorrect, setMarksPerCorrect] = useState<number>(1);
@@ -96,11 +94,6 @@ export default function OMRScanner({
 
   const [activeAnswerKey, setActiveAnswerKey] = useState<AnswerKeyMap>(answerKey || {});
   const [keySourceLabel, setKeySourceLabel] = useState<string>('Default');
-  const [manualSetKeys, setManualSetKeys] = useState<
-    Partial<Record<OptionLetter | 'DEFAULT', AnswerKeyMap>>
-  >({});
-  const [answerKeyText, setAnswerKeyText] = useState<string>('');
-  const [showKeyEditor, setShowKeyEditor] = useState<boolean>(false);
 
   const [bookletRoi, setBookletRoi] = useState<NormalizedRect>(DEFAULT_BOOKLET_ROI);
   const [gridRoi, setGridRoi] = useState<NormalizedRect>(DEFAULT_RESPONSE_GRID_ROI);
@@ -204,22 +197,6 @@ export default function OMRScanner({
         setNegativeMarks(dbNegativeMarks);
         setPassingMarks(dbPassingMarks);
 
-        const isSetLetter =
-          activeBookletSet === 'A' ||
-          activeBookletSet === 'B' ||
-          activeBookletSet === 'C' ||
-          activeBookletSet === 'D';
-
-        if (isSetLetter && manualSetKeys[activeBookletSet]) {
-          setActiveAnswerKey(manualSetKeys[activeBookletSet]!);
-          setKeySourceLabel(`Set ${activeBookletSet} (Manual)`);
-          return;
-        }
-        if (!isSetLetter && manualSetKeys.DEFAULT) {
-          setActiveAnswerKey(manualSetKeys.DEFAULT);
-          setKeySourceLabel('Manual Key');
-          return;
-        }
         if (answerKey && Object.keys(answerKey).length > 0) {
           setActiveAnswerKey(answerKey);
           setKeySourceLabel('Prop Key');
@@ -238,7 +215,7 @@ export default function OMRScanner({
     return () => {
       isCancelled = true;
     };
-  }, [examId, defaultTotalQuestions, activeBookletSet, answerKey, manualSetKeys]);
+  }, [examId, defaultTotalQuestions, activeBookletSet, answerKey]);
 
   const startCamera = useCallback(async (mode: 'environment' | 'user') => {
     setCameraError(null);
@@ -578,9 +555,7 @@ export default function OMRScanner({
 
     try {
       const warpedCanvas = warpedCanvasRef.current;
-      const omrImageUrl = warpedCanvas
-        ? warpedCanvas.toDataURL('image/jpeg', 0.9)
-        : selectedStudent.omrImageUrl;
+      const omrImageUrl = warpedCanvas ? warpedCanvas.toDataURL('image/jpeg', 0.9) : selectedStudent.omrImageUrl;
       const omrBlob = warpedCanvas
         ? await new Promise<Blob | undefined>((resolve) =>
             warpedCanvas.toBlob((blob) => resolve(blob ?? undefined), 'image/jpeg', 0.9)
@@ -633,28 +608,6 @@ export default function OMRScanner({
     } finally {
       setIsMappingResult(false);
     }
-  };
-
-  const handleApplyAnswerKey = () => {
-    const parsed = parseAnswerKeyInput(answerKeyText, totalQuestions);
-    const setTarget: OptionLetter | 'DEFAULT' =
-      activeBookletSet === 'A' ||
-      activeBookletSet === 'B' ||
-      activeBookletSet === 'C' ||
-      activeBookletSet === 'D'
-        ? activeBookletSet
-        : 'DEFAULT';
-
-    setManualSetKeys((prev) => ({ ...prev, [setTarget]: parsed }));
-    setActiveAnswerKey(parsed);
-    setKeySourceLabel(setTarget === 'DEFAULT' ? 'Manual Key' : `Set ${setTarget} (Manual)`);
-    setCalculatedResult(null);
-    setShowKeyEditor(false);
-    setStatusMessage(
-      `Loaded ${Object.keys(parsed).length} answer key entries for ${
-        setTarget === 'DEFAULT' ? 'Default' : `Set ${setTarget}`
-      }.`
-    );
   };
 
   const handleSetManualCorners = () => {
@@ -772,7 +725,6 @@ export default function OMRScanner({
     setSelectedStudentId('');
     setOmrSerialNo('');
     setAllowRemapExisting(false);
-    setShowKeyEditor(false);
     loadPresentStudents();
 
     if (typeof window !== 'undefined') {
@@ -795,12 +747,6 @@ export default function OMRScanner({
           passingMarks={passingMarks}
           keySourceLabel={keySourceLabel}
           keyEntriesCount={Object.keys(activeAnswerKey).length}
-          showKeyEditor={showKeyEditor}
-          answerKeyText={answerKeyText}
-          activeBookletSet={activeBookletSet}
-          onToggleKeyEditor={() => setShowKeyEditor((prev) => !prev)}
-          onChangeAnswerKeyText={setAnswerKeyText}
-          onApplyAnswerKey={handleApplyAnswerKey}
         />
 
         <CaptureViewport
