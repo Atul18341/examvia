@@ -2,7 +2,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma/client"
+  output   = "./generated/prisma/client"
 }
 
 datasource db {
@@ -55,6 +55,7 @@ model StudentRecord {
   checkedIn   Boolean  @default(false) @map("checked_in")
   checkInTime String?  @map("check_in_time")
   bookletSet  String?  @map("booklet_set")
+  omrSerialNo String?  @map("omr_serial_no")
   submittedAt String?  @map("submitted_at")
   omrScanned  Boolean  @default(false) @map("omr_scanned")
   omrImageUrl String?  @map("omr_image_url")
